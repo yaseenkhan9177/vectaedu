@@ -20,10 +20,7 @@ class ExamPaper extends Model
         'school_id',
     ];
 
-    protected static function booted()
-    {
-        static::addGlobalScope(new \App\Models\Scopes\SchoolScope);
-    }
+   protected $connection = 'tenant';
 
     protected $casts = [
         'submitted_at' => 'datetime',

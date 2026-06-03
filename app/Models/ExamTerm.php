@@ -18,10 +18,7 @@ class ExamTerm extends Model
         'rules',
     ];
 
-    protected static function booted()
-    {
-        static::addGlobalScope(new \App\Models\Scopes\SchoolScope);
-    }
+   protected $connection = 'tenant';
 
     protected $casts = [
         'start_date' => 'date',

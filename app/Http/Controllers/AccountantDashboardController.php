@@ -276,15 +276,18 @@ class AccountantDashboardController extends Controller
         // In AccountantController store, we saw: 'school_id' => Auth::id() (Admin ID)
         // So accountant->school_id should be valid.
 
-        \App\Models\StudentReport::create([
-            'school_id' => $accountant->school_id, // Ensure this column exists in accountants table, previously assumed yes based on creation logic
+        $reportData = [
             'student_id' => $request->student_id,
             'reporter_id' => $accountant->id,
             'reporter_role' => 'accountant',
             'severity' => $request->severity,
             'reason' => $request->reason,
             'status' => 'pending',
-        ]);
+        ];
+        if (\Illuminate\Support\Facades\Schema::connection('tenant')->hasColumn('student_reports', 'school_id')) {
+            $reportData['school_id'] = $accountant->school_id;
+        }
+        \App\Models\StudentReport::create($reportData);
 
         return back()->with('success', 'Student report submitted for review.');
     }

@@ -76,8 +76,12 @@ class AppServiceProvider extends ServiceProvider
                 }
             }
 
-            if ($cachedPendingCount === null) {
-                $cachedPendingCount = \App\Models\Student::where('status', 'pending')->count();
+           if ($cachedPendingCount === null) {
+                try {
+                    $cachedPendingCount = \App\Models\Student::where('status', 'pending')->count();
+                } catch (\Exception $e) {
+                    $cachedPendingCount = 0; // Safely defaults to 0 if the table doesn't exist
+                }
             }
 
             $schoolName = $school ? $school->name : ($adminUser->school_name ?? 'Own Education');

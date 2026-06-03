@@ -30,8 +30,5 @@ class ActivityLog extends Model
         // Plan said: user_id (foreign key, nullable). Let's stick to simple ID.
     }
 
-    protected static function booted()
-    {
-        static::addGlobalScope(new \App\Models\Scopes\SchoolScope);
-    }
+   protected $connection = 'tenant';
 }

@@ -27,10 +27,7 @@ class Homework extends Model
         'due_date' => 'date',
     ];
 
-    protected static function booted()
-    {
-        static::addGlobalScope(new \App\Models\Scopes\SchoolScope);
-    }
+    protected $connection = 'tenant';
 
     public function schoolClass()
     {

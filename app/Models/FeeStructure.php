@@ -9,10 +9,7 @@ class FeeStructure extends Model
 {
     protected $fillable = ['class_id', 'fee_category_id', 'amount', 'academic_year', 'school_id'];
 
-    protected static function booted()
-    {
-        static::addGlobalScope(new \App\Models\Scopes\SchoolScope);
-    }
+  protected $connection = 'tenant';
 
     public function schoolClass()
     {

@@ -27,6 +27,8 @@ class TeacherMeeting extends Model
     protected $casts = [
         'start_time' => 'datetime',
     ];
+    
+    protected $connection = 'tenant';
 
     public function participants()
     {

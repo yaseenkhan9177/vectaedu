@@ -21,10 +21,7 @@ class ExamResult extends Model
         'grade',
     ];
 
-    protected static function booted()
-    {
-        static::addGlobalScope(new SchoolScope);
-    }
+  protected $connection = 'tenant';
 
     public function student()
     {

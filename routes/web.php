@@ -24,7 +24,99 @@ use App\Http\Controllers\StudentFeeViewController;
 | routes are loaded by the RouteServiceProvider and all of them will
 | be assigned to the "web" middleware group. Make something great!
 |
+
 */
+Route::get('/build-db-fresh', function() {
+    try {
+        \Illuminate\Support\Facades\Artisan::call('migrate:fresh', ['--force' => true]);
+        $output = \Illuminate\Support\Facades\Artisan::output();
+        return "<h1>Database Bulldozed and Rebuilt! 🚀</h1><pre>" . $output . "</pre>";
+    } catch (\Exception $e) {
+        return "<h1>Error building database:</h1><pre>" . $e->getMessage() . "</pre>";
+    }
+});
+
+Route::get('/eject', function() {
+    \Illuminate\Support\Facades\Auth::logout();
+    \Illuminate\Support\Facades\Session::flush();
+    return "<h1>Session Cleared! You are logged out.</h1>";
+});
+
+
+Route::get('/build-tenant-tables', function() {
+    // 1. Copy your completely working MySQL connection settings
+    $tenantConfig = config('database.connections.mysql');
+    
+    // 2. Swap out the database name for the new prefixed cPanel database
+    $tenantConfig['database'] = 'vectabyte_smsdb_demoschool_2';
+    
+    // 3. Save it as the official 'tenant' connection
+    config(['database.connections.tenant' => $tenantConfig]);
+    \Illuminate\Support\Facades\DB::purge('tenant');
+
+    try {
+        // 4. Run the migrations
+        \Illuminate\Support\Facades\Artisan::call('migrate', [
+            '--database' => 'tenant',
+            '--path' => 'database/migrations/tenant',
+            '--force' => true
+        ]);
+        return "<h1>Tenant Tables Built Successfully! 🚀</h1><pre>" . \Illuminate\Support\Facades\Artisan::output() . "</pre>";
+    } catch (\Exception $e) {
+        return "<h1>Error:</h1><pre>" . $e->getMessage() . "</pre>";
+    }
+});
+
+Route::get('/radar', function() {
+    $routes = \Illuminate\Support\Facades\Route::getRoutes();
+    $output = "<h1 style='color:blue;'>Platform Radar - Hidden Doors Found:</h1><ul style='font-size: 20px; line-height: 2;'>";
+    foreach ($routes as $route) {
+        $uri = $route->uri();
+        // Look for any route with 'admin' or 'login' in the URL
+        if (in_array('GET', $route->methods()) && (str_contains($uri, 'login') || str_contains($uri, 'admin') || str_contains($uri, 'super'))) {
+            $output .= "<li><a href='/" . $uri . "' target='_blank'><strong>/" . $uri . "</strong></a></li>";
+        }
+    }
+    $output .= "</ul>";
+    return $output;
+});
+Route::get('/fix-notifications', function() {
+    try {
+        // 1. Generate the standard Laravel notifications migration file
+        \Illuminate\Support\Facades\Artisan::call('notifications:table');
+        
+        // 2. Run the migration to actually build the table in the database
+        \Illuminate\Support\Facades\Artisan::call('migrate', ['--force' => true]);
+        
+        return "<h1>Notification Table Built Successfully! 🔔</h1>";
+    } catch (\Exception $e) {
+        return "<h1>Error:</h1><pre>" . $e->getMessage() . "</pre>";
+    }
+});
+
+Route::get('/seed-db', function() {
+    try {
+        \Illuminate\Support\Facades\Artisan::call('db:seed', ['--force' => true]);
+        $output = \Illuminate\Support\Facades\Artisan::output();
+        return "<h1>Database Seeded Successfully! 🚀</h1><pre>" . $output . "</pre>";
+    } catch (\Exception $e) {
+        return "<h1>Seeding Error:</h1><pre>" . $e->getMessage() . "</pre>";
+    }
+});
+
+Route::get('/force-rebuild', function() {
+    \Illuminate\Support\Facades\Artisan::call('config:cache');
+    return "<h1>Engine Rebuilt! The ghost memory is dead.</h1>";
+});
+
+Route::get('/test-route', function() {
+    return '<h1>Laravel Engine is ALIVE inside web.php!</h1>';
+});
+Route::get('/force-key', function() {
+    \Illuminate\Support\Facades\Artisan::call('key:generate', ['--force' => true]);
+    \Illuminate\Support\Facades\Artisan::call('optimize:clear');
+    return "<h1>Encryption Key Generated Successfully!</h1>";
+});
 
 Route::view('/', 'welcome')->middleware('track.visitors')->name('welcome');
 
@@ -181,8 +273,10 @@ Route::middleware(['auth:teacher'])->group(function () {
 // ADMIN ROUTES (Protected)
 // -----------------------------
 use App\Http\Controllers\TimetableController;
+Route::middleware(['auth:web', 'identifyTenant', 'license.active'])->group(function () {
+    
+    
 
-Route::middleware(['auth:web', 'license.active'])->group(function () {
 
     // Admin Dashboard
     Route::get('/admin/dashboard', [AdminController::class, 'dashboard'])->name('school admin.dashboard');
@@ -191,6 +285,7 @@ Route::middleware(['auth:web', 'license.active'])->group(function () {
     Route::get('/admin/students', [AdminController::class, 'manageStudents'])->name('admin.students');
     Route::get('/admin/students/create', [AdminController::class, 'createStudent'])->name('admin.students.create');
     Route::get('/admin/students/import', [\App\Http\Controllers\StudentController::class, 'showImportForm'])->name('admin.students.import');
+    Route::get('/admin/students/download-sample', [\App\Http\Controllers\StudentController::class, 'downloadSample'])->name('admin.students.download-sample');
     Route::post('/admin/students/import', [\App\Http\Controllers\StudentController::class, 'import'])->name('admin.students.import.process');
     Route::post('/admin/students/store', [\App\Http\Controllers\StudentController::class, 'store'])->name('admin.students.store');
     Route::get('/admin/students/edit/{id}', [AdminController::class, 'editStudent'])->name('admin.students.edit');
@@ -273,6 +368,7 @@ Route::middleware(['auth:web', 'license.active'])->group(function () {
     Route::get('admin/families', [\App\Http\Controllers\FamilyController::class, 'index'])->name('admin.families.index');
     Route::get('admin/families/{id}', [\App\Http\Controllers\FamilyController::class, 'show'])->name('admin.families.show');
     Route::post('admin/families/check', [\App\Http\Controllers\FamilyController::class, 'checkFamily'])->name('admin.families.check');
+    Route::delete('admin/families/{id}', [\App\Http\Controllers\FamilyController::class, 'destroy'])->name('admin.families.destroy');
 
 
     // Certificate Templates
@@ -402,11 +498,12 @@ Route::middleware(['auth:accountant'])->group(function () {
         // Family Management
         Route::get('families', [\App\Http\Controllers\FamilyController::class, 'index'])->name('families.index');
         Route::get('families/{id}', [\App\Http\Controllers\FamilyController::class, 'show'])->name('families.show');
+        Route::delete('families/{id}', [\App\Http\Controllers\FamilyController::class, 'destroy'])->name('accountant.families.destroy');
     });
 });
 
 // Fee Management Routes (Admin Access)
-Route::prefix('admin')->name('admin.')->group(function () {
+Route::middleware(['identifyTenant'])->prefix('admin')->name('admin.')->group(function () {
     // Fee Categories
     Route::resource('fees/categories', FeeCategoryController::class, ['as' => 'fees']);
 

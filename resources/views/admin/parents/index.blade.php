@@ -30,8 +30,19 @@
                         </span>
                     </td>
                     <td class="px-6 py-4">
-                        <a href="#" class="text-indigo-600 hover:text-indigo-900 font-medium text-sm">Edit</a>
-                        {{-- Add Delete Form --}}
+                        <div class="flex items-center gap-3">
+                            <a href="#" class="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Edit">
+                                <i class="fa-solid fa-pen-to-square"></i>
+                            </a>
+                            <form action="{{ route('admin.parents.destroy', $parent->id) }}" method="POST"
+                                onsubmit="return confirm('Delete this parent? Their students will be unlinked.')">
+                                @csrf
+                                @method('DELETE')
+                                <button type="submit" class="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Delete">
+                                    <i class="fa-solid fa-trash"></i>
+                                </button>
+                            </form>
+                        </div>
                     </td>
                 </tr>
                 @empty

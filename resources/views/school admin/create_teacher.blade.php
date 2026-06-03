@@ -126,7 +126,7 @@
                                     <p class="text-sm text-gray-500"><span class="font-semibold">Click to upload</span> or drag and drop</p>
                                     <p class="text-xs text-gray-500">PNG, JPG or JPEG (MAX. 2MB)</p>
                                 </div>
-                                <input id="image" name="image" type="file" class="hidden" accept="image/*" required />
+                                <input id="image" name="image" type="file" class="hidden" accept="image/*"  />
                             </label>
                         </div>
                     </div>

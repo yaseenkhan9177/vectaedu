@@ -88,4 +88,19 @@ class FamilyController extends Controller
         if (Auth::guard('accountant')->check()) return 'accountant';
         return 'admin';
     }
+
+    // -------------------------------------------------------------------------
+    // Delete a family and nullify references on linked students
+    // -------------------------------------------------------------------------
+    public function destroy($id)
+    {
+        $family = Family::findOrFail($id);
+
+        // Unlink students belonging to this family
+        \App\Models\Student::where('family_id', $family->id)->update(['family_id' => null]);
+
+        $family->delete();
+
+        return redirect()->back()->with('success', 'Family deleted successfully.');
+    }
 }

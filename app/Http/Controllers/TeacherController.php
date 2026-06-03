@@ -282,15 +282,18 @@ class TeacherController extends Controller
 
         $teacher = \Illuminate\Support\Facades\Auth::guard('teacher')->user();
 
-        \App\Models\StudentReport::create([
-            'school_id' => $teacher->school_id,
+        $reportData = [
             'student_id' => $request->student_id,
             'reporter_id' => $teacher->id,
             'reporter_role' => 'teacher',
             'severity' => $request->severity,
             'reason' => $request->reason,
             'status' => 'pending',
-        ]);
+        ];
+        if (\Illuminate\Support\Facades\Schema::connection('tenant')->hasColumn('student_reports', 'school_id')) {
+            $reportData['school_id'] = $teacher->school_id;
+        }
+        \App\Models\StudentReport::create($reportData);
 
         return back()->with('success', 'Student report submitted for review.');
     }

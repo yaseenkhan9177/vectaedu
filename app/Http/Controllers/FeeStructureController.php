@@ -24,8 +24,8 @@ class FeeStructureController extends Controller
     public function store(Request $request)
     {
         $request->validate([
-            'class_id' => 'required|exists:school_classes,id',
-            'fee_category_id' => 'required|exists:fee_categories,id',
+            'class_id' => 'required|exists:tenant.school_classes,id',
+            'fee_category_id' => 'required|exists:tenant.fee_categories,id',
             'amount' => 'required|numeric|min:0',
             'academic_year' => 'required|string',
         ]);

@@ -19,20 +19,20 @@ class ExamTermController extends Controller
 
     public function store(Request $request)
     {
-        $request->validate([
-            'name' => [
-                'required',
-                'string',
-                Rule::unique('exam_terms')->where(function ($query) {
-                    return $query->where('school_id', \Illuminate\Support\Facades\Auth::id());
-                }),
-            ],
-            'start_date' => 'required|date',
-            'end_date' => 'required|date|after_or_equal:start_date',
-            'rules' => 'nullable|string',
-            'class_ids' => 'required|array',
-            'class_ids.*' => 'exists:school_classes,id',
-        ]);
+       $request->validate([
+    'name' => [
+        'required',
+        'string',
+        Rule::unique('tenant.exam_terms')->where(function ($query) {
+            return $query->where('school_id', \Illuminate\Support\Facades\Auth::id());
+        }),
+    ],
+    'start_date' => 'required|date',
+    'end_date' => 'required|date|after_or_equal:start_date',
+    'rules' => 'nullable|string',
+    'class_ids' => 'required|array',
+    'class_ids.*' => 'exists:tenant.school_classes,id',
+]);
 
         // Overlap Check (Multi-Tenant aware)
         $overlap = ExamTerm::where('school_id', \Illuminate\Support\Facades\Auth::id())

@@ -1,13 +1,12 @@
 <?php
-
 namespace App\Models;
-
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-
 class TeacherAttendance extends Model
 {
     use HasFactory;
+
+    protected $connection = 'tenant';
 
     protected $fillable = [
         'school_id',
@@ -16,7 +15,6 @@ class TeacherAttendance extends Model
         'status',
         'remarks',
     ];
-
     public function teacher()
     {
         return $this->belongsTo(Teacher::class);

@@ -10,6 +10,8 @@ use Laravel\Sanctum\HasApiTokens;
 class Accountant extends Authenticatable
 {
     use HasApiTokens, HasFactory, Notifiable;
+    
+      protected $connection = 'tenant';
 
     protected $fillable = [
         'name',

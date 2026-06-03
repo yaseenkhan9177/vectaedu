@@ -83,8 +83,8 @@ class ExamScheduleController extends Controller
 
         // Validation for common fields
         $request->validate([
-            'term_id' => 'required|exists:exam_terms,id',
-            'class_id' => 'required|exists:school_classes,id',
+            'term_id' => 'required|exists:tenant.exam_terms,id',
+            'class_id' => 'required|exists:tenant.school_classes,id',
             'subjects' => 'nullable|array',
             'dates' => 'nullable|array',
             'start_times' => 'nullable|array',

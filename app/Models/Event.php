@@ -20,8 +20,5 @@ class Event extends Model
         'target_audience' => 'array',
     ];
 
-    protected static function booted()
-    {
-        static::addGlobalScope(new \App\Models\Scopes\SchoolScope);
-    }
+   protected $connection = 'tenant';
 }

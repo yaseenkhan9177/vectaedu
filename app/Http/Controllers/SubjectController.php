@@ -22,7 +22,7 @@ class SubjectController extends Controller
     {
         $request->validate([
             'name' => 'required|string|max:255',
-            'code' => 'required|string|max:50|unique:subjects',
+        'code' => 'required|string|max:50|unique:tenant.subjects',
         ]);
 
         $data = $request->all();

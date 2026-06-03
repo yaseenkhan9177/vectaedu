@@ -17,7 +17,7 @@ class StudentController extends Controller
         // Validation (copied from/aligned with AdminController logic assumption)
         $request->validate([
             'name' => 'required|string|max:255',
-            'email' => 'required|email|unique:students,email',
+            'email' => 'required|email|unique:tenant.students,email',
             'phone' => 'nullable|string',
             'parent_phone' => 'nullable|digits:11',
             'parent_email' => 'nullable|email',
@@ -25,7 +25,7 @@ class StudentController extends Controller
             'dob' => 'nullable|date',
             'transport_required' => 'nullable|in:yes,no',
             'transport_fee' => 'required_if:transport_required,yes|nullable|numeric|min:0',
-            'transport_route_id' => 'required_if:transport_required,yes|nullable|exists:transport_routes,id',
+         'transport_route_id' => 'required_if:transport_required,yes|nullable|exists:tenant.transport_routes,id',
         ]);
 
         $user = $request->user();
@@ -53,9 +53,11 @@ class StudentController extends Controller
         // Sequence starts at 1001. Max 1999.
 
         // Find last student for this school to determine sequence
-        $lastStudent = Student::where('school_id', $schoolId)
-            ->latest('id')
-            ->first();
+        $studentQuery = Student::query();
+        if (\Illuminate\Support\Facades\Schema::connection('tenant')->hasColumn('students', 'school_id')) {
+            $studentQuery->where('school_id', $schoolId);
+        }
+        $lastStudent = $studentQuery->latest('id')->first();
 
         $sequence = 1001;
 
@@ -86,11 +88,11 @@ class StudentController extends Controller
 
         if ($parentPhone) {
             // Check if parent exists
-            $parent = \App\Models\SchoolParent::where('phone', $parentPhone)->withoutGlobalScopes()->first();
-            // used withoutGlobalScopes to find parent globally? No, phone should be unique per school or global? 
-            // Schema: unique(['school_id', 'phone']). So specific to school.
-            // We should search within school.
-            $parent = \App\Models\SchoolParent::where('school_id', $schoolId)->where('phone', $parentPhone)->first();
+            $parentQuery = \App\Models\SchoolParent::where('phone', $parentPhone);
+            if (\Illuminate\Support\Facades\Schema::connection('tenant')->hasColumn('parents', 'school_id')) {
+                $parentQuery->where('school_id', $schoolId);
+            }
+            $parent = $parentQuery->first();
 
             if ($parent) {
                 $parentId = $parent->id;
@@ -102,7 +104,9 @@ class StudentController extends Controller
             } else {
                 // Create new parent
                 $newParent = new \App\Models\SchoolParent();
-                $newParent->school_id = $schoolId;
+                if (\Illuminate\Support\Facades\Schema::connection('tenant')->hasColumn('parents', 'school_id')) {
+                    $newParent->school_id = $schoolId;
+                }
                 $newParent->name = $request->parent_name ?? 'Parent';
                 $newParent->email = $request->parent_email; // Save Email
                 $newParent->phone = $parentPhone;
@@ -150,7 +154,7 @@ class StudentController extends Controller
         // Generate password from class_id and roll_number as requested
         $plainPassword = $request->class_id . $rollNumber;
 
-        $student = Student::create([
+        $studentData = [
             'name'          => $request->name,
             'email'         => $request->email,
             'gender'        => $request->gender,
@@ -159,7 +163,6 @@ class StudentController extends Controller
             'plain_password'=> $plainPassword,
             'phone'         => $request->phone,
             'roll_number'   => $rollNumber,
-            'school_id'     => $schoolId,
             'status'        => 'approved', // Auto-approve if created by Admin
             'parent_phone'  => $request->parent_phone,
             'parent_name'   => $request->parent_name, // Keep legacy for now
@@ -168,7 +171,11 @@ class StudentController extends Controller
             'department'    => $request->department,
             'transport_fee' => $transportFee,
             'family_id'     => $familyId,             // Family System
-        ]);
+        ];
+        if (\Illuminate\Support\Facades\Schema::connection('tenant')->hasColumn('students', 'school_id')) {
+            $studentData['school_id'] = $schoolId;
+        }
+        $student = Student::create($studentData);
 
 
         if ($request->hasFile('image')) {
@@ -223,59 +230,249 @@ class StudentController extends Controller
             'status' => 'error',
             'message' => 'Parent not found'
         ]);
+    }
     public function showImportForm()
     {
         return view('school admin.students.import');
     }
 
-    public function import(Request $request)
+    public function downloadSample()
     {
-        $request->validate([
-            'file' => 'required|mimes:xlsx,xls,csv,pdf|max:10240',
-        ]);
+        $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
 
-        $user = Auth::user() ?: Auth::guard('accountant')->user();
-        if (!$user) {
-            return back()->with('error', 'Unauthorized.');
+        // Row 1: Headers
+        $headers = [
+            'name', 'email', 'gender', 'dob', 'phone', 
+            'parent_name', 'parent_phone', 'parent_email', 
+            'class_name', 'roll_number'
+        ];
+        
+        foreach ($headers as $colIndex => $header) {
+            $sheet->setCellValueByColumnAndRow($colIndex + 1, 1, $header);
         }
-        
-        $schoolId = ($user instanceof \App\Models\User) ? $user->id : $user->school_id;
 
-        $file = $request->file('file');
-        
-        if ($file->getClientOriginalExtension() === 'pdf') {
-            try {
-                $parser = new \Smalot\PdfParser\Parser();
-                $pdf = $parser->parseFile($file->getPathname());
-                $text = $pdf->getText();
-                
-                // Simple pattern matching for PDF (e.g., "Name: John Doe, Email: john@example.com")
-                // This is a basic implementation as PDF structure varies wildly.
-                preg_match_all('/([a-zA-Z\s]+)\s+([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/', $text, $matches, PREG_SET_ORDER);
-                
-                if (empty($matches)) {
-                    return back()->with('error', 'Could not extract student data from PDF. Please ensure names are followed by emails, or use Excel/CSV.');
-                }
+        // Rows 2-4: 3 sample rows
+        $sampleData = [
+            [
+                'Ahmed Khan', 'ahmed@example.com', 'male', '2010-05-15', '03001234567', 
+                'Muhammad Khan', '03001234568', 'father@example.com', 'class 1 A', '1001'
+            ],
+            [
+                'Sara Ali', 'sara@example.com', 'female', '2011-03-20', '03009876543', 
+                'Ali Hassan', '03009876544', 'ali@example.com', 'class 1 A', '1002'
+            ],
+            [
+                'Usman Ahmed', 'usman@example.com', 'male', '2009-11-10', '03005555555', 
+                'Ahmed Raza', '03005555556', 'raza@example.com', 'class 2 B', '2001'
+            ]
+        ];
 
-                $count = 0;
-                foreach ($matches as $match) {
-                    // Reuse StudentController logic or simple create
-                    // Note: This won't handle classes/parents as deeply as Excel import
-                    // Ideally, we'd map these to the StudentsImport class logic
-                    $count++;
-                }
-
-                return back()->with('success', "Extracted $count students from PDF. Please note that PDF import is less reliable than Excel.");
-            } catch (\Exception $e) {
-                return back()->with('error', 'PDF Parsing failed: ' . $e->getMessage());
+        foreach ($sampleData as $rowIndex => $rowData) {
+            foreach ($rowData as $colIndex => $val) {
+                $cell = $sheet->getCellByColumnAndRow($colIndex + 1, $rowIndex + 2);
+                $cell->setValueExplicit($val, \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_STRING);
             }
         }
 
-        try {
-            \Maatwebsite\Excel\Facades\Excel::import(new \App\Imports\StudentsImport($schoolId), $file);
-            return redirect()->route('admin.students')->with('success', 'Students imported successfully. Passwords have been generated automatically.');
-        } catch (\Exception $e) {
-            return back()->with('error', 'Import failed: ' . $e->getMessage());
+        // Autofit column widths
+        foreach (range(1, count($headers)) as $col) {
+            $sheet->getColumnDimensionByColumn($col)->setAutoSize(true);
         }
+
+        $writer = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet);
+        
+        return response()->streamDownload(function() use ($writer) {
+            $writer->save('php://output');
+        }, 'student_import_sample.xlsx', [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'Cache-Control' => 'max-age=0',
+        ]);
+    }
+
+    public function import(Request $request)
+    {
+        $request->validate([
+            'file' => 'required|mimes:xlsx,xls|max:10240',
+        ]);
+
+        $schoolId = Auth::id();
+        if (!$schoolId) {
+            return back()->with('error', 'Unauthorized.');
+        }
+
+        $file = $request->file('file');
+        
+        try {
+            $spreadsheet = \PhpOffice\PhpSpreadsheet\IOFactory::load($file->getRealPath());
+            $worksheet = $spreadsheet->getActiveSheet();
+            $rows = $worksheet->toArray();
+        } catch (\Exception $e) {
+            return back()->with('error', 'Failed to read Excel file: ' . $e->getMessage());
+        }
+
+        // Get the starting sequence for roll numbers
+        $studentQuery = \App\Models\Student::query();
+        if (\Illuminate\Support\Facades\Schema::connection('tenant')->hasColumn('students', 'school_id')) {
+            $studentQuery->where('school_id', $schoolId);
+        }
+        $lastStudent = $studentQuery->latest('id')->first();
+
+        $sequence = 1001;
+
+        if ($lastStudent && $lastStudent->roll_number) {
+            $prefix = $schoolId . '00';
+            if (strpos($lastStudent->roll_number, $prefix) === 0) {
+                $lastSequence = (int) substr($lastStudent->roll_number, strlen($prefix));
+                $sequence = $lastSequence + 1;
+            }
+        }
+
+        $successCount = 0;
+        $errors = [];
+
+        foreach ($rows as $index => $row) {
+            if ($index === 0) {
+                continue; // Skip header row
+            }
+
+            // Check if the row is entirely empty
+            $isEmpty = true;
+            foreach ($row as $cell) {
+                if ($cell !== null && trim($cell) !== '') {
+                    $isEmpty = false;
+                    break;
+                }
+            }
+            if ($isEmpty) {
+                continue;
+            }
+
+            $rowNum = $index + 1;
+
+            $data = [
+                'name' => trim($row[0] ?? ''),
+                'email' => trim($row[1] ?? ''),
+                'gender' => trim(strtolower($row[2] ?? '')),
+                'dob' => trim($row[3] ?? ''),
+                'phone' => trim($row[4] ?? ''),
+                'parent_name' => trim($row[5] ?? ''),
+                'parent_phone' => trim($row[6] ?? ''),
+                'parent_email' => trim($row[7] ?? ''),
+                'class_name' => trim($row[8] ?? ''),
+                'roll_number' => trim($row[9] ?? ''),
+            ];
+
+            $validator = \Illuminate\Support\Facades\Validator::make($data, [
+                'name' => 'required',
+                'email' => 'required|email|unique:tenant.students,email',
+                'gender' => 'required|in:male,female',
+                'class_name' => 'required|exists:tenant.school_classes,name',
+                'parent_phone' => 'required',
+            ]);
+
+            if ($validator->fails()) {
+                $errors[] = "Row {$rowNum}: " . implode(', ', $validator->errors()->all());
+                continue;
+            }
+
+            try {
+                // Find class
+                $class = \App\Models\SchoolClass::where('name', $data['class_name'])->first();
+
+                // Roll number
+                $rollNumber = $data['roll_number'];
+                if (empty($rollNumber)) {
+                    $rollNumber = $schoolId . '00' . $sequence;
+                    $sequence++;
+                }
+
+                // Password generation: class_id + roll_number
+                $plainPassword = $class->id . $rollNumber;
+
+                // Parent lookup or create
+                $parentPhone = $data['parent_phone'];
+                $parentId = null;
+                if ($parentPhone) {
+                    $parentQuery = \App\Models\SchoolParent::where('phone', $parentPhone);
+                    if (\Illuminate\Support\Facades\Schema::connection('tenant')->hasColumn('parents', 'school_id')) {
+                        $parentQuery->where('school_id', $schoolId);
+                    }
+                    $parent = $parentQuery->first();
+
+                    if ($parent) {
+                        $parentId = $parent->id;
+                        if (!$parent->email && $data['parent_email']) {
+                            $parent->email = $data['parent_email'];
+                            $parent->save();
+                        }
+                    } else {
+                        $parentData = [
+                            'name' => $data['parent_name'] ?: 'Parent',
+                            'email' => $data['parent_email'] ?: null,
+                            'phone' => $parentPhone,
+                            'password' => \Illuminate\Support\Facades\Hash::make($parentPhone),
+                        ];
+                        if (\Illuminate\Support\Facades\Schema::connection('tenant')->hasColumn('parents', 'school_id')) {
+                            $parentData['school_id'] = $schoolId;
+                        }
+                        $parent = \App\Models\SchoolParent::create($parentData);
+                        $parentId = $parent->id;
+                    }
+                }
+
+                // Family lookup or create
+                $familyId = null;
+                $fatherEmail = $data['parent_email'];
+                if ($fatherEmail) {
+                    $family = \App\Models\Family::where('email', $fatherEmail)
+                        ->where('school_id', $schoolId)
+                        ->first();
+
+                    if (!$family) {
+                        $family = \App\Models\Family::create([
+                            'family_code' => \App\Models\Family::generateCode(),
+                            'father_name' => $data['parent_name'] ?: 'Guardian',
+                            'email'       => $fatherEmail,
+                            'phone'       => $data['parent_phone'] ?: '',
+                            'school_id'   => $schoolId,
+                        ]);
+                    }
+                    $familyId = $family->id;
+                }
+
+                // Create student
+                $studentData = [
+                    'name'          => $data['name'],
+                    'email'         => $data['email'],
+                    'gender'        => $data['gender'],
+                    'dob'           => $data['dob'] ?: null,
+                    'password'      => \Illuminate\Support\Facades\Hash::make($plainPassword),
+                    'plain_password'=> $plainPassword,
+                    'phone'         => $data['phone'] ?: null,
+                    'roll_number'   => $rollNumber,
+                    'status'        => 'approved',
+                    'parent_phone'  => $data['parent_phone'],
+                    'parent_name'   => $data['parent_name'] ?: null,
+                    'parent_id'     => $parentId,
+                    'class_id'      => $class->id,
+                    'family_id'     => $familyId,
+                ];
+                if (\Illuminate\Support\Facades\Schema::connection('tenant')->hasColumn('students', 'school_id')) {
+                    $studentData['school_id'] = $schoolId;
+                }
+                \App\Models\Student::create($studentData);
+
+                $successCount++;
+            } catch (\Exception $e) {
+                $errors[] = "Row {$rowNum}: Exception occurred: " . $e->getMessage();
+            }
+        }
+
+        return redirect()->back()->with([
+            'import_success_count' => $successCount,
+            'import_errors' => $errors,
+            'import_completed' => true
+        ]);
     }
 }

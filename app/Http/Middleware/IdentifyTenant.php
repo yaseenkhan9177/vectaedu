@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 use App\Models\School;
 use App\Services\TenantService;
+\Illuminate\Support\Facades\Log::info('tenant_db session: ' . session('tenant_db'));
 
 class IdentifyTenant
 {
@@ -17,24 +18,32 @@ class IdentifyTenant
         $this->tenantService = $tenantService;
     }
 
-    /**
-     * Handle an incoming request.
-     *
-     * @param  \Closure(\Illuminate\Http\Request): (\Symfony\Component\HttpFoundation\Response)  $next
-     */
     public function handle(Request $request, Closure $next): Response
     {
-        // Extract the subdomain (e.g., 'hbschool' from 'hbschool.yoursms.com')
-        $host = $request->getHost();
-        $subdomain = explode('.', $host)[0];
+        // First try session-based tenant (single domain setup)
+        if (session('tenant_db')) {
+            $this->tenantService->configureConnection(session('tenant_db'));
+            return $next($request);
+        }
 
-        // Find the active school matching the subdomain
+        // Fallback: subdomain-based tenant
+        $host = $request->getHost();
+        $parts = explode('.', $host);
+
+        // Only try subdomain if more than 2 parts
+        if (count($parts) <= 2) {
+            return $next($request);
+        }
+
+        $subdomain = $parts[0];
+
         $school = School::where('slug', $subdomain)
             ->where('status', 'active')
-            ->firstOrFail();
+            ->first();
 
-        // Dynamically configure the database connection for this tenant
-        $this->tenantService->configureConnection($school->database_name);
+        if ($school) {
+            $this->tenantService->configureConnection($school->database_name);
+        }
 
         return $next($request);
     }

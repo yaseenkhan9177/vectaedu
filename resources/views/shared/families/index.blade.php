@@ -66,11 +66,24 @@ $routePrefix = ($guard === 'accountant') ? 'accountant.' : 'admin.';
                             </span>
                         </td>
                         <td class="px-6 py-4 text-right">
-                            <a href="{{ route($routePrefix . 'families.show', $family->id) }}"
-                                class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600 text-white text-xs font-semibold hover:bg-indigo-700 transition-colors">
-                                <i class="fa-solid fa-eye"></i>
-                                View
-                            </a>
+                            <div class="flex items-center justify-end gap-2">
+                                <a href="{{ route($routePrefix . 'families.show', $family->id) }}"
+                                    class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600 text-white text-xs font-semibold hover:bg-indigo-700 transition-colors">
+                                    <i class="fa-solid fa-eye"></i>
+                                    View
+                                </a>
+                                <form action="{{ route($guard === 'accountant' ? 'accountant.families.destroy' : 'admin.families.destroy', $family->id) }}"
+                                    method="POST"
+                                    onsubmit="return confirm('Delete this family? Students linked to it will be unlinked.')">
+                                    @csrf
+                                    @method('DELETE')
+                                    <button type="submit"
+                                        class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-600 text-white text-xs font-semibold hover:bg-red-700 transition-colors">
+                                        <i class="fa-solid fa-trash"></i>
+                                        Delete
+                                    </button>
+                                </form>
+                            </div>
                         </td>
                     </tr>
                     @empty

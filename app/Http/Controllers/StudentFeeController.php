@@ -146,8 +146,8 @@ class StudentFeeController extends Controller
     public function storeSingle(Request $request)
     {
         $request->validate([
-            'student_id' => 'required|exists:students,id',
-            'fee_structure_id' => 'required|exists:fee_structures,id',
+            'student_id' => 'required|exists:tenant.students,id',
+            'fee_structure_id' => 'required|exists:tenant.fee_structures,id',
             'month' => 'required|date_format:Y-m',
             'due_date' => 'required|date',
             'base_amount' => 'required|numeric|min:0',
@@ -283,7 +283,7 @@ class StudentFeeController extends Controller
 
                         $feeKey = $student->id . '_' . $structure->id;
                         if (!in_array($feeKey, $existingSelectedFees)) {
-                            $batchFees[] = [
+                            $feeData = [
                                 'student_id' => $student->id,
                                 'fee_structure_id' => $structure->id,
                                 'month' => $request->month,
@@ -291,10 +291,13 @@ class StudentFeeController extends Controller
                                 'due_date' => $request->due_date,
                                 'status' => 'unpaid',
                                 'invoice_no' => $invoiceNo,
-                                'school_id' => $student->school_id,
                                 'created_at' => $now,
                                 'updated_at' => $now,
                             ];
+                            if (\Illuminate\Support\Facades\Schema::connection('tenant')->hasColumn('student_fees', 'school_id')) {
+                                $feeData['school_id'] = $student->school_id;
+                            }
+                            $batchFees[] = $feeData;
                             $existingSelectedFees[] = $feeKey;
                         }
                     }
@@ -302,7 +305,7 @@ class StudentFeeController extends Controller
                     if (isset($activeTransports[$student->id]) && $transportStructure) {
                         $transportKey = $student->id . '_' . $transportStructure->id;
                         if (!in_array($transportKey, $existingSelectedFees)) {
-                            $batchFees[] = [
+                            $feeData = [
                                 'student_id' => $student->id,
                                 'fee_structure_id' => $transportStructure->id,
                                 'month' => $request->month,
@@ -310,10 +313,13 @@ class StudentFeeController extends Controller
                                 'due_date' => $request->due_date,
                                 'status' => 'unpaid',
                                 'invoice_no' => $invoiceNo,
-                                'school_id' => $student->school_id,
                                 'created_at' => $now,
                                 'updated_at' => $now,
                             ];
+                            if (\Illuminate\Support\Facades\Schema::connection('tenant')->hasColumn('student_fees', 'school_id')) {
+                                $feeData['school_id'] = $student->school_id;
+                            }
+                            $batchFees[] = $feeData;
                         }
                     }
                 }
@@ -369,7 +375,7 @@ class StudentFeeController extends Controller
             return back()->with('error', 'This fee item already exists in this invoice.');
         }
 
-        StudentFee::create([
+        $feeData = [
             'student_id' => $baseFee->student_id,
             'fee_structure_id' => $request->fee_structure_id,
             'month' => $baseFee->month,
@@ -377,8 +383,11 @@ class StudentFeeController extends Controller
             'due_date' => $baseFee->due_date,
             'status' => 'unpaid',
             'invoice_no' => $request->invoice_no,
-            'school_id' => $baseFee->student->school_id,
-        ]);
+        ];
+        if (\Illuminate\Support\Facades\Schema::connection('tenant')->hasColumn('student_fees', 'school_id')) {
+            $feeData['school_id'] = $baseFee->student->school_id;
+        }
+        StudentFee::create($feeData);
 
         return back()->with('success', 'Fee item added successfully to Invoice ' . $request->invoice_no);
     }
@@ -601,22 +610,21 @@ class StudentFeeController extends Controller
                     $remainingForThisFee = $feeTotal - $newFeePaid;
 
                     if ($remainingForThisFee > 0) {
-                        StudentFee::create([
+                        $feeData = [
                             'student_id' => $fee->student_id,
                             'fee_structure_id' => $fee->fee_structure_id,
-                            'month' => 'Remaining Balance', //'month' => $fee->month, // Keeping original month might be better for grouping? 
-                            // User previously liked "Remaining Balance" text.
-                            // But if we change month, it might break the "Invoice Grouping" if grouping relies on identical months.
-                            // Current Invoice Grouping uses `group_by`. 
-                            // If we want this new remaining fee to stay in the SAME invoice group, it needs same invoice_no.
+                            'month' => 'Remaining Balance',
                             'amount' => $remainingForThisFee,
                             'due_date' => $fee->due_date,
                             'status' => 'unpaid',
                             'invoice_no' => $fee->invoice_no,
                             'late_fee' => 0,
                             'discount' => 0,
-                            'school_id' => $fee->school_id,
-                        ]);
+                        ];
+                        if (\Illuminate\Support\Facades\Schema::connection('tenant')->hasColumn('student_fees', 'school_id')) {
+                            $feeData['school_id'] = $fee->school_id;
+                        }
+                        StudentFee::create($feeData);
                     }
                 }
             }

@@ -16,7 +16,7 @@ class ExpenseCategoryController extends Controller
     public function store(Request $request)
     {
         $request->validate([
-            'name' => 'required|string|max:255|unique:expense_categories',
+            'name' => 'required|string|max:255|unique:tenant.expense_categories',
             'description' => 'nullable|string',
         ]);
 
@@ -47,7 +47,7 @@ class ExpenseCategoryController extends Controller
     public function update(Request $request, ExpenseCategory $expenseCategory)
     {
         $request->validate([
-            'name' => 'required|string|max:255|unique:expense_categories,name,' . $expenseCategory->id,
+            'name' => 'required|string|max:255|unique:tenant.expense_categories,name,' . $expenseCategory->id,
             'description' => 'nullable|string',
         ]);
 

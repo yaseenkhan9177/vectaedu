@@ -34,10 +34,10 @@ class TimetableController extends Controller
     public function store(Request $request)
     {
         $request->validate([
-            'school_class_id' => 'required|exists:school_classes,id',
+            'school_class_id' => 'required|exists:tenant.school_classes,id',
             'timetable' => 'required|array',
-            'timetable.*.subject_id' => 'required|exists:subjects,id',
-            'timetable.*.teacher_id' => 'required|exists:teachers,id',
+            'timetable.*.subject_id' => 'required|exists:tenant.subjects,id',
+            'timetable.*.teacher_id' => 'required|exists:tenant.teachers,id',
             'timetable.*.day' => 'nullable|string',
             'timetable.*.start_time' => 'nullable|date_format:H:i',
             'timetable.*.end_time' => 'nullable|date_format:H:i|after:timetable.*.start_time',

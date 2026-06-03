@@ -1,18 +1,14 @@
 <?php
-
 namespace App\Models;
-
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-
 class Expense extends Model
 {
-    protected $fillable = ['expense_category_id', 'amount', 'expense_date', 'title', 'description', 'receipt_path', 'created_by', 'school_id'];
+    use HasFactory;
 
-    protected static function booted()
-    {
-        static::addGlobalScope(new \App\Models\Scopes\SchoolScope);
-    }
+    protected $connection = 'tenant';
+
+    protected $fillable = ['expense_category_id', 'amount', 'expense_date', 'title', 'description', 'receipt_path', 'created_by', 'school_id'];
 
     public function category()
     {

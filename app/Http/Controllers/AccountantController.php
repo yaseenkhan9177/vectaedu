@@ -23,7 +23,7 @@ class AccountantController extends Controller
     {
         $request->validate([
             'name' => 'required|string|max:255',
-            'email' => 'required|string|email|max:255|unique:accountants',
+            'email' => 'required|string|email|max:255|unique:tenant.accountants',
             'password' => 'required|string|min:8',
             'phone' => 'nullable|string|max:20',
             'address' => 'nullable|string',
@@ -73,10 +73,21 @@ class AccountantController extends Controller
 
         return redirect()->route('admin.accountants.index')->with('success', 'Accountant updated successfully.');
     }
+    
+    public function __construct()
+{
+    $this->middleware(function ($request, $next) {
+        if (session('tenant_db')) {
+            app(\App\Services\TenantService::class)->configureConnection(session('tenant_db'));
+        }
+        return $next($request);
+    });
+}
 
-    public function destroy(Accountant $accountant)
-    {
-        $accountant->delete();
-        return redirect()->route('admin.accountants.index')->with('success', 'Accountant deleted successfully.');
-    }
+   public function destroy($id)
+{
+    $accountant = Accountant::findOrFail($id);
+    $accountant->delete();
+    return redirect()->route('admin.accountants.index')->with('success', 'Accountant deleted successfully.');
+}
 }

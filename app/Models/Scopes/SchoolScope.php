@@ -49,7 +49,10 @@ class SchoolScope implements Scope
             }
 
             if ($schoolId) {
-                $builder->where($model->getTable() . '.school_id', $schoolId);
+                $connection = $model->getConnectionName() ?: 'tenant';
+                if (\Illuminate\Support\Facades\Schema::connection($connection)->hasColumn($model->getTable(), 'school_id')) {
+                    $builder->where($model->getTable() . '.school_id', $schoolId);
+                }
             }
         } finally {
             $isApplying = false;

@@ -43,7 +43,7 @@ class ExpenseController extends Controller
     {
         $request->validate([
             'title' => 'required|string|max:255',
-            'expense_category_id' => 'required|exists:expense_categories,id',
+            'expense_category_id' => 'required|exists:tenant.expense_categories,id',
             'amount' => 'required|numeric|min:0',
             'expense_date' => 'required|date',
             'description' => 'nullable|string',

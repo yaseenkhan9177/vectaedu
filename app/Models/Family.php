@@ -21,10 +21,7 @@ class Family extends Model
     /**
      * Apply school scope so each school only sees its own families.
      */
-    protected static function booted()
-    {
-        static::addGlobalScope(new \App\Models\Scopes\SchoolScope);
-    }
+    protected $connection = 'tenant';
 
     // -------------------------------------------------------------------------
     // Relationships

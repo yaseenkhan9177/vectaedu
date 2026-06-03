@@ -10,6 +10,8 @@ use Illuminate\Database\Eloquent\Builder;
 class SchoolParent extends Authenticatable
 {
     use HasFactory, Notifiable;
+    
+      protected $connection = 'tenant';
 
     protected $table = 'parents';
 
@@ -37,7 +39,9 @@ class SchoolParent extends Authenticatable
         // Auto-assign school_id on creation
         static::creating(function ($parent) {
             if (auth()->guard('web')->check()) {
-                $parent->school_id = auth()->id();
+                if (\Illuminate\Support\Facades\Schema::connection('tenant')->hasColumn('parents', 'school_id')) {
+                    $parent->school_id = auth()->id();
+                }
             }
         });
     }

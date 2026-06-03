@@ -1,12 +1,13 @@
 <?php
-
 namespace App\Models;
-
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-
 class StudentFee extends Model
 {
+    use HasFactory;
+
+    protected $connection = 'tenant';
+
     protected $fillable = [
         'student_id',
         'fee_structure_id',
@@ -26,11 +27,6 @@ class StudentFee extends Model
         'note',
         'transaction_id',
     ];
-
-    protected static function booted()
-    {
-        static::addGlobalScope(new \App\Models\Scopes\SchoolScope);
-    }
 
     protected $appends = ['total_amount'];
 

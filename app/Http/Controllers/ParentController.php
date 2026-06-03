@@ -88,4 +88,20 @@ class ParentController extends Controller
 
         return response()->json($parents);
     }
+
+    public function destroy($id)
+    {
+        $parent = SchoolParent::findOrFail($id);
+        
+        // Remove references from students linked to this parent
+        Student::where('parent_id', $parent->id)->update([
+            'parent_id' => null,
+            'parent_phone' => null,
+            'parent_name' => null
+        ]);
+
+        $parent->delete();
+
+        return redirect()->back()->with('success', 'Parent deleted successfully.');
+    }
 }
