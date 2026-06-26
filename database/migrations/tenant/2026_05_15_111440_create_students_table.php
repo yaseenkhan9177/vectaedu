@@ -11,10 +11,15 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('students', function (Blueprint $table) {
-            $table->id();
-            $table->timestamps();
-        });
+        // This migration is a duplicate of 2025_10_29_180955_create_students_table.php
+        // The students table is already created by the earlier migration with full columns.
+        // We skip creation if the table already exists to prevent conflicts.
+        if (!Schema::hasTable('students')) {
+            Schema::create('students', function (Blueprint $table) {
+                $table->id();
+                $table->timestamps();
+            });
+        }
     }
 
     /**

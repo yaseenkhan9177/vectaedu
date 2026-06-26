@@ -286,7 +286,12 @@ Route::middleware(['auth:web', 'identifyTenant', 'license.active'])->group(funct
     Route::get('/admin/students/create', [AdminController::class, 'createStudent'])->name('admin.students.create');
     Route::get('/admin/students/import', [\App\Http\Controllers\StudentController::class, 'showImportForm'])->name('admin.students.import');
     Route::get('/admin/students/download-sample', [\App\Http\Controllers\StudentController::class, 'downloadSample'])->name('admin.students.download-sample');
+    Route::get('/admin/students/sample-csv', [\App\Http\Controllers\StudentController::class, 'downloadSampleCsv'])->name('admin.students.sample-csv');
     Route::post('/admin/students/import', [\App\Http\Controllers\StudentController::class, 'import'])->name('admin.students.import.process');
+    Route::post('/students/import-preview', [\App\Http\Controllers\StudentController::class, 'importPreview'])->name('students.import-preview');
+    Route::get('/students/sample-csv', [\App\Http\Controllers\StudentController::class, 'downloadSampleCsv'])->name('students.sample-csv');
+    Route::post('/students/import-save', [\App\Http\Controllers\StudentController::class, 'importSave'])->name('students.import-save');
+    Route::get('/students/import-preview-page', [\App\Http\Controllers\StudentController::class, 'showPreview'])->name('students.import-preview-page');
     Route::post('/admin/students/store', [\App\Http\Controllers\StudentController::class, 'store'])->name('admin.students.store');
     Route::get('/admin/students/edit/{id}', [AdminController::class, 'editStudent'])->name('admin.students.edit');
     Route::post('/admin/students/update/{id}', [AdminController::class, 'updateStudent'])->name('admin.students.update');

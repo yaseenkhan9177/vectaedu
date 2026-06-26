@@ -1,7 +1,26 @@
 @extends('layouts.admin')
 
 @section('content')
-<div class="container mx-auto px-4 py-8" x-data="{ showImportModal: {{ session('import_completed') ? 'true' : 'false' }} }">
+<div
+    class="container mx-auto px-4 py-8"
+    x-data="{
+        showImportModal: false,
+        fileName: '',
+        handleFileSelect(e) {
+            if (e.target.files.length) this.fileName = e.target.files[0].name;
+        },
+        handleDrop(e) {
+            if (e.dataTransfer.files.length) {
+                this.$refs.csvInput.files = e.dataTransfer.files;
+                this.fileName = e.dataTransfer.files[0].name;
+            }
+        },
+        resetModal() {
+            this.fileName = '';
+            if (this.$refs.csvInput) this.$refs.csvInput.value = '';
+        }
+    }"
+>
     <div class="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
         <h2 class="text-2xl font-bold text-gray-800">Manage Students</h2>
 
@@ -121,9 +140,9 @@
         {{ $students->links() }}
     </div>
 
-    <!-- Bulk Import Modal -->
-    <div 
-        x-show="showImportModal" 
+    <!-- CSV Import Modal -->
+    <div
+        x-show="showImportModal"
         class="fixed inset-0 z-50 overflow-y-auto"
         x-transition:enter="transition ease-out duration-300"
         x-transition:enter-start="opacity-0"
@@ -134,191 +153,105 @@
         style="display: none;"
     >
         <!-- Backdrop -->
-        <div class="fixed inset-0 bg-gray-900/60 backdrop-blur-sm transition-opacity" @click="showImportModal = false"></div>
+        <div class="fixed inset-0 bg-gray-900/60 backdrop-blur-sm" @click="showImportModal = false; resetModal()"></div>
 
-        <!-- Modal Wrapper -->
+        <!-- Modal -->
         <div class="flex min-h-full items-end justify-center p-4 text-center sm:items-center sm:p-0">
-            <div 
-                class="relative transform overflow-hidden rounded-xl bg-white text-left shadow-2xl transition-all sm:my-8 sm:w-full sm:max-w-4xl"
+            <form
+                action="{{ route('students.import-preview') }}"
+                method="POST"
+                enctype="multipart/form-data"
+                class="relative transform overflow-hidden rounded-xl bg-white text-left shadow-2xl transition-all sm:my-8 sm:w-full sm:max-w-2xl"
                 x-transition:enter="transition ease-out duration-300"
-                x-transition:enter-start="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
+                x-transition:enter-start="opacity-0 translate-y-4 sm:scale-95"
                 x-transition:enter-end="opacity-100 translate-y-0 sm:scale-100"
                 x-transition:leave="transition ease-in duration-200"
                 x-transition:leave-start="opacity-100 translate-y-0 sm:scale-100"
-                x-transition:leave-end="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
-                @click.away="showImportModal = false"
+                x-transition:leave-end="opacity-0 translate-y-4 sm:scale-95"
             >
+                @csrf
+                <!-- Header -->
                 <div class="bg-white px-6 py-5 border-b border-gray-100 flex justify-between items-center">
                     <div class="flex items-center gap-3">
                         <div class="p-2.5 bg-emerald-50 text-emerald-600 rounded-lg">
-                            <i class="fa-solid fa-file-excel text-xl"></i>
+                            <i class="fa-solid fa-file-csv text-xl"></i>
                         </div>
                         <div>
                             <h3 class="text-lg font-bold text-gray-900">Bulk Student Import</h3>
-                            <p class="text-xs text-gray-500">Register multiple students at once via Excel</p>
+                            <p class="text-xs text-gray-500">Import multiple students at once via CSV</p>
                         </div>
                     </div>
-                    <button type="button" @click="showImportModal = false" class="text-gray-400 hover:text-gray-500 p-1.5 hover:bg-gray-50 rounded-lg transition-colors">
+                    <button type="button" @click="showImportModal = false; resetModal()" class="text-gray-400 hover:text-gray-500 p-1.5 hover:bg-gray-50 rounded-lg transition-colors">
                         <i class="fa-solid fa-xmark text-lg"></i>
                     </button>
                 </div>
 
-                <form action="{{ route('admin.students.import.process') }}" method="POST" enctype="multipart/form-data">
-                    @csrf
-                    <div class="p-6 space-y-6">
-                        <!-- Session Results Summary -->
-                        @if(session('import_completed'))
-                            <div class="space-y-3">
-                                <div class="bg-emerald-50 border border-emerald-200 rounded-lg p-4 flex items-start gap-3">
-                                    <i class="fa-solid fa-circle-check text-emerald-600 text-lg mt-0.5"></i>
-                                    <div>
-                                        <h4 class="text-sm font-semibold text-emerald-950">Import Process Completed</h4>
-                                        <p class="text-xs text-emerald-800 mt-0.5">✅ {{ session('import_success_count') }} students imported successfully.</p>
-                                    </div>
-                                </div>
+                <div class="p-6 space-y-5">
 
-                                @if(session('import_errors') && count(session('import_errors')) > 0)
-                                    <div class="bg-red-50 border border-red-200 rounded-lg p-4">
-                                        <div class="flex items-start gap-3 mb-2">
-                                            <i class="fa-solid fa-circle-xmark text-red-600 text-lg mt-0.5"></i>
-                                            <div>
-                                                <h4 class="text-sm font-semibold text-red-950">❌ {{ count(session('import_errors')) }} rows failed:</h4>
-                                            </div>
-                                        </div>
-                                        <div class="max-h-40 overflow-y-auto pl-8 pr-2 space-y-1">
-                                            @foreach(session('import_errors') as $error)
-                                                <div class="text-xs text-red-800 font-medium list-item list-disc">{{ $error }}</div>
-                                            @endforeach
-                                        </div>
-                                    </div>
-                                @endif
-                            </div>
-                        @endif
-
-                        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-gray-50 p-4 rounded-xl">
-                            <div>
-                                <h4 class="text-sm font-semibold text-gray-900">Step 1: Download Template</h4>
-                                <p class="text-xs text-gray-500">Download the formatted sample Excel file to add your student details.</p>
-                            </div>
-                            <a href="{{ route('admin.students.download-sample') }}" class="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 shadow-md shadow-indigo-600/10 transition-all flex items-center gap-2 whitespace-nowrap">
-                                <i class="fa-solid fa-download"></i> Download Sample Excel
-                            </a>
-                        </div>
-
+                    <!-- Step 1: Download sample -->
+                    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-gray-50 p-4 rounded-xl">
                         <div>
-                            <h4 class="text-sm font-semibold text-gray-900 mb-2">Excel File Structure Preview</h4>
-                            <div class="overflow-x-auto border border-gray-100 rounded-lg">
-                                <table class="w-full text-left text-xs text-gray-500 font-normal border-collapse">
-                                    <thead class="bg-gray-50 text-[10px] uppercase font-semibold text-gray-400 border-b border-gray-100">
-                                        <tr>
-                                            <th class="px-3 py-2 font-medium">name</th>
-                                            <th class="px-3 py-2 font-medium">email</th>
-                                            <th class="px-3 py-2 font-medium">gender</th>
-                                            <th class="px-3 py-2 font-medium">dob</th>
-                                            <th class="px-3 py-2 font-medium">phone</th>
-                                            <th class="px-3 py-2 font-medium">parent_name</th>
-                                            <th class="px-3 py-2 font-medium">parent_phone</th>
-                                            <th class="px-3 py-2 font-medium">parent_email</th>
-                                            <th class="px-3 py-2 font-medium">class_name</th>
-                                            <th class="px-3 py-2 font-medium">roll_number</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody class="divide-y divide-gray-100">
-                                        <tr class="bg-white">
-                                            <td class="px-3 py-2 text-gray-700 font-medium">Ahmed Khan</td>
-                                            <td class="px-3 py-2">ahmed@example.com</td>
-                                            <td class="px-3 py-2">male</td>
-                                            <td class="px-3 py-2">2010-05-15</td>
-                                            <td class="px-3 py-2">03001234567</td>
-                                            <td class="px-3 py-2">Muhammad Khan</td>
-                                            <td class="px-3 py-2">03001234568</td>
-                                            <td class="px-3 py-2">father@example.com</td>
-                                            <td class="px-3 py-2"><span class="bg-indigo-50 text-indigo-700 px-1.5 py-0.5 rounded">class 1 A</span></td>
-                                            <td class="px-3 py-2">1001</td>
-                                        </tr>
-                                        <tr class="bg-white">
-                                            <td class="px-3 py-2 text-gray-700 font-medium">Sara Ali</td>
-                                            <td class="px-3 py-2">sara@example.com</td>
-                                            <td class="px-3 py-2">female</td>
-                                            <td class="px-3 py-2">2011-03-20</td>
-                                            <td class="px-3 py-2">03009876543</td>
-                                            <td class="px-3 py-2">Ali Hassan</td>
-                                            <td class="px-3 py-2">03009876544</td>
-                                            <td class="px-3 py-2">ali@example.com</td>
-                                            <td class="px-3 py-2"><span class="bg-indigo-50 text-indigo-700 px-1.5 py-0.5 rounded">class 1 A</span></td>
-                                            <td class="px-3 py-2">1002</td>
-                                        </tr>
-                                        <tr class="bg-white">
-                                            <td class="px-3 py-2 text-gray-700 font-medium">Usman Ahmed</td>
-                                            <td class="px-3 py-2">usman@example.com</td>
-                                            <td class="px-3 py-2">male</td>
-                                            <td class="px-3 py-2">2009-11-10</td>
-                                            <td class="px-3 py-2">03005555555</td>
-                                            <td class="px-3 py-2">Ahmed Raza</td>
-                                            <td class="px-3 py-2">03005555556</td>
-                                            <td class="px-3 py-2">raza@example.com</td>
-                                            <td class="px-3 py-2"><span class="bg-indigo-50 text-indigo-700 px-1.5 py-0.5 rounded">class 2 B</span></td>
-                                            <td class="px-3 py-2">2001</td>
-                                        </tr>
-                                    </tbody>
-                                </table>
-                            </div>
+                            <h4 class="text-sm font-semibold text-gray-900">Step 1 — Download Sample CSV</h4>
+                            <p class="text-xs text-gray-500 mt-0.5">Fill in the sample file with your student data, then upload it below.</p>
                         </div>
-
-                        <!-- Warning Alert -->
-                        <div class="flex gap-3 bg-amber-50 border border-amber-200 rounded-lg p-3.5 text-amber-800 text-xs">
-                            <i class="fa-solid fa-circle-exclamation mt-0.5 text-base text-amber-600"></i>
-                            <div>
-                                <span class="font-semibold text-amber-900 block mb-0.5">Requirements Note:</span>
-                                Your file must have the exact same column headers as the sample file. Class name must exactly match an existing class.
-                            </div>
-                        </div>
-
-                        <!-- Drag & Drop Upload Section -->
-                        <div x-data="{ 
-                            fileName: '',
-                            handleFileSelect(e) {
-                                if (e.target.files.length) {
-                                    this.fileName = e.target.files[0].name;
-                                }
-                            },
-                            handleDrop(e) {
-                                if (e.dataTransfer.files.length) {
-                                    this.$refs.fileInput.files = e.dataTransfer.files;
-                                    this.fileName = e.dataTransfer.files[0].name;
-                                }
-                            }
-                        }" class="space-y-2">
-                            <h4 class="text-sm font-semibold text-gray-900">Step 2: Upload Excel File</h4>
-                            <div 
-                                x-data="{ isDragging: false }"
-                                @dragover.prevent="isDragging = true"
-                                @dragleave.prevent="isDragging = false"
-                                @drop.prevent="isDragging = false; handleDrop($event)"
-                                class="border-2 border-dashed rounded-xl p-8 flex flex-col items-center justify-center cursor-pointer transition-colors"
-                                :class="isDragging ? 'border-indigo-500 bg-indigo-50/50' : 'border-gray-300 hover:border-indigo-400 bg-gray-50/50'"
-                                @click="$refs.fileInput.click()"
-                            >
-                                <input type="file" x-ref="fileInput" name="file" accept=".xlsx, .xls" class="hidden" @change="handleFileSelect($event)" required>
-                                <div class="p-3 bg-white shadow-sm border border-gray-100 rounded-xl mb-3 text-gray-400">
-                                    <i class="fa-solid fa-cloud-arrow-up text-2xl" :class="isDragging ? 'text-indigo-500' : 'text-gray-400'"></i>
-                                </div>
-                                <span class="text-sm font-semibold text-gray-700" x-text="fileName || 'Drag and drop your Excel file here, or click to browse'"></span>
-                                <span class="text-xs text-gray-400 mt-1">Accepts only .xlsx and .xls formats</span>
-                            </div>
-                        </div>
+                        <a
+                            href="{{ route('students.sample-csv') }}"
+                            class="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 shadow-md shadow-indigo-600/10 transition-all flex items-center gap-2 whitespace-nowrap"
+                        >
+                            <i class="fa-solid fa-download"></i> Download Sample CSV
+                        </a>
                     </div>
 
-                    <div class="bg-gray-50 px-6 py-4 border-t border-gray-100 flex justify-end gap-3">
-                        <button type="button" @click="showImportModal = false" class="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition-colors">
-                            Cancel
-                        </button>
-                        <button type="submit" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-medium shadow-md shadow-emerald-600/10 transition-colors">
-                            Import Students
-                        </button>
+                    <!-- Column reference -->
+                    <div>
+                        <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Required CSV Columns</p>
+                        <div class="flex flex-wrap gap-2">
+                            @foreach(['full_name','email','gender','date_of_birth','phone','parent_name','parent_phone','parent_email','password'] as $col)
+                            <span class="px-2.5 py-1 bg-indigo-50 text-indigo-700 rounded-full text-xs font-medium border border-indigo-100">{{ $col }}</span>
+                            @endforeach
+                        </div>
+                        <p class="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mt-3">
+                            <i class="fa-solid fa-circle-exclamation mr-1"></i>
+                            <strong>gender</strong> must be <code>Male</code> or <code>Female</code> (capital first letter).
+                            <strong>date_of_birth</strong> format: <code>YYYY-MM-DD</code>.
+                        </p>
                     </div>
-                </form>
-            </div>
+
+                    <!-- Step 2: Upload -->
+                    <div>
+                        <h4 class="text-sm font-semibold text-gray-900 mb-2">Step 2 — Upload Your CSV</h4>
+                        <div
+                            x-data="{ isDragging: false }"
+                            @dragover.prevent="isDragging = true"
+                            @dragleave.prevent="isDragging = false"
+                            @drop.prevent="isDragging = false; handleDrop($event)"
+                            class="border-2 border-dashed rounded-xl p-8 flex flex-col items-center justify-center cursor-pointer transition-colors"
+                            :class="isDragging ? 'border-indigo-500 bg-indigo-50/50' : 'border-gray-300 hover:border-indigo-400 bg-gray-50/50'"
+                            @click="$refs.csvInput.click()"
+                        >
+                            <input type="file" name="file" x-ref="csvInput" accept=".csv" class="hidden" @change="handleFileSelect($event)" required>
+                            <div class="p-3 bg-white shadow-sm border border-gray-100 rounded-xl mb-3">
+                                <i class="fa-solid fa-cloud-arrow-up text-2xl" :class="isDragging ? 'text-indigo-500' : 'text-gray-400'"></i>
+                            </div>
+                            <span class="text-sm font-semibold text-gray-700" x-text="fileName || 'Drag and drop your CSV here, or click to browse'"></span>
+                            <span class="text-xs text-gray-400 mt-1">Accepts .csv files only · Max 5 MB</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Footer -->
+                <div class="bg-gray-50 px-6 py-4 border-t border-gray-100 flex justify-end gap-3">
+                    <button type="button" @click="showImportModal = false; resetModal()" class="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition-colors">
+                        Close
+                    </button>
+                    <button
+                        type="submit"
+                        class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-medium shadow-md shadow-emerald-600/10 transition-colors flex items-center gap-2"
+                    >
+                        <span>Upload & Preview</span>
+                    </button>
+                </div>
+            </form>
         </div>
     </div>
 </div>
